@@ -349,12 +349,13 @@ class PlanRenderer:
                 {"path": "config/domains.py", "desc": "产品域识别、能力特征与特征→模块映射"},
                 {"path": "config/agents.py", "desc": "Agent 类型、职责与主题色"},
                 {"path": "config/rules.py", "desc": "规模系数、优先级、波次与风险阈值"},
+                {"path": "config/llm_key.py", "desc": "大模型 Key、地址与模型名（唯一配置入口）"},
             ],
             "llm": llm_status or {"name": "rule-only", "enabled": False},
             "extend": [
                 "新增产品类型：在 config/domains.py 的 DOMAINS 增加关键词与模块列表",
                 "新增任务模板：在 config/modules.py 增加模块（capabilities 或 subtasks）",
-                "接入真实大模型：实现 engine/llm.py 的 LLMAdapter 并设置 SE_WORKFLOW_LLM",
+                "接入真实大模型：在 config/llm_key.py（或 llm_key_local.py）填写 Key",
                 "前端样式：static/css/style.css；图交互：static/js/result.js",
             ],
         }

@@ -145,7 +145,8 @@
         <h3>大模型接入</h3>
         <p class="muted">
           当前模式：<b>{{ plan.config_meta.llm.name }}</b>（{{ '已启用' if plan.config_meta.llm.enabled else '未启用，纯规则运行' }}）。
-          设置 <code>SE_WORKFLOW_LLM=openai</code> 与 <code>SE_LLM_BASE_URL</code> / <code>SE_LLM_API_KEY</code>
+          在 <code>config/llm_key.py</code>（或本地 <code>config/llm_key_local.py</code>）配置 Key，
+          或设置 <code>SE_WORKFLOW_LLM=openai</code> 与 <code>SE_LLM_BASE_URL</code> / <code>SE_LLM_API_KEY</code>
           后，解析层会额外补充需求模块；任何失败都会自动回退到规则结果。
         </p>
       </article>
