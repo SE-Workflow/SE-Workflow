@@ -75,7 +75,9 @@ se-workflow/
 │   ├── agents.py              #   Agent 类型 / 职责 / 配色 / 关键词推断
 │   ├── domains.py             #   产品域关键词、能力特征、特征→模块映射
 │   ├── modules.py             #   任务模块模板（三层任务 + 模块依赖）
-│   └── rules.py               #   规模系数、优先级、波次与风险阈值、示例
+│   ├── rules.py               #   规模系数、优先级、波次与风险阈值、示例
+│   ├── llm_key.py             #   大模型 Key / 地址 / 模型（唯一配置入口）
+│   └── llm_key_local.example.py  # 本地私有 Key 配置模板（复制为 llm_key_local.py）
 ├── engine/                    # 引擎：输入 → 分解 → 编排 → 渲染
 │   ├── models.py              #   Task 数据结构与序列化
 │   ├── parser.py              #   输入解析（领域/规模/平台/能力/补充需求）
@@ -199,7 +201,24 @@ se-workflow/
 
 ## 大模型接入
 
-默认 `RuleOnlyAdapter`，不发任何外部请求。需要接入 OpenAI 兼容接口时设置：
+默认 `RuleOnlyAdapter`，不发任何外部请求。Key、接口地址与模型名统一由
+`config/llm_key.py` 读取，其他代码不再直接访问环境变量。支持两种配置方式
+（环境变量优先）：
+
+**方式一：本地私有文件（推荐首次使用）**
+
+复制 `config/llm_key_local.example.py` 为 `config/llm_key_local.py`，填写：
+
+```python
+MODE = "openai"
+BASE_URL = "https://api.openai.com/v1"
+API_KEY = "sk-..."
+MODEL = "gpt-4o-mini"
+```
+
+`config/llm_key_local.py` 已在 `.gitignore` 中，不会被提交。
+
+**方式二：环境变量**
 
 ```bash
 SE_WORKFLOW_LLM=openai

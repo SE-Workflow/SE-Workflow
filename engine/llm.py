@@ -3,11 +3,8 @@
 默认不调用任何模型：`RuleOnlyAdapter` 直接返回 None，任务分解完全由
 `config/` 中的模板与关键词映射驱动，因此离线、无密钥也能跑通全流程。
 
-需要接入真实模型时，设置环境变量：
-    SE_WORKFLOW_LLM=openai
-    SE_LLM_BASE_URL=https://api.openai.com/v1
-    SE_LLM_API_KEY=sk-...
-    SE_LLM_MODEL=gpt-4o-mini
+Key 与连接参数统一在 `config/llm_key.py` 维护，支持环境变量或本地私有文件
+`config/llm_key_local.py`（模板见 `config/llm_key_local.example.py`）。
 
 适配器只负责“补充需求模块”，任何网络/格式错误都会静默回退到规则结果，
 不会阻塞网页流程。你也可以实现自己的 `LLMAdapter` 子类替换 `get_adapter()`。
@@ -16,8 +13,9 @@
 from __future__ import annotations
 
 import json
-import os
 import urllib.request
+
+from config.llm_key import get_llm_settings
 
 
 class LLMAdapter:
@@ -93,12 +91,13 @@ class OpenAICompatibleAdapter(LLMAdapter):
 
 
 def get_adapter() -> LLMAdapter:
-    """按环境变量选择适配器；默认规则引擎。"""
-    mode = os.getenv("SE_WORKFLOW_LLM", "off").strip().lower()
-    if mode in {"openai", "llm", "on"}:
-        base_url = os.getenv("SE_LLM_BASE_URL", "").strip()
-        api_key = os.getenv("SE_LLM_API_KEY", "").strip()
-        model = os.getenv("SE_LLM_MODEL", "gpt-4o-mini").strip()
-        if base_url and api_key:
-            return OpenAICompatibleAdapter(base_url, api_key, model)
+    """按 config/llm_key.py 的配置选择适配器；默认规则引擎。"""
+    settings = get_llm_settings()
+    if settings["configured"]:
+        return OpenAICompatibleAdapter(
+            settings["base_url"],
+            settings["api_key"],
+            settings["model"],
+            timeout=settings["timeout"],
+        )
     return RuleOnlyAdapter()
