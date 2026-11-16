@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.profile.domain.label }} · 任务分解与 Agent 编排{% endblock %}
+{% block body_class %}page-result{% endblock %}
+
+{% block content %}
+<script id="plan-data" type="application/json">{{ plan | tojson }}</script>
+
+<header class="topbar">
+  <a class="brand" href="{{ url_for('index') }}">
+    <span class="brand-mark">◈</span>
+    <span>SE Workflow <b>Studio</b></span>
+  </a>
+  <div class="topbar-actions">
+    <span class="badge ghost">{{ plan.meta.engine }} · v{{ plan.meta.version }}</span>
+    <button class="btn-ghost" type="button" id="download-json">导出 JSON</button>
+    <a class="btn-ghost" href="{{ url_for('index') }}">重新输入</a>
+  </div>
+</header>
+
+<main class="result-page">
+  <section class="result-hero">
+    <div class="requirement-block">
+      <p class="eyebrow">需求输入 · {{ plan.profile.domain.label }}</p>
+      <h1 class="req-raw">{{ plan.profile.raw }}</h1>
+      <p class="req-summary">{{ plan.profile.summary }}</p>
+      <div class="chip-row" id="profile-chips"></div>
+      <p class="generated">生成于 {{ plan.meta.generated_at }} · {{ plan.profile.domain.confidence * 100 }}% 识别置信度</p>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+  </section>
+
+  <nav class="tabs" id="tabs" role="tablist" aria-label="结果视图">
+    <button class="tab active" type="button" role="tab" data-tab="tree" aria-selected="true">任务分解</button>
+    <button class="tab" type="button" role="tab" data-tab="graph" aria-selected="false">Agent 编排</button>
+    <button class="tab" type="button" role="tab" data-tab="waves" aria-selected="false">执行波次</button>
+    <button class="tab" type="button" role="tab" data-tab="data" aria-selected="false">数据与配置</button>
+  </nav>
+
+  <section class="panel" id="panel-tree" role="tabpanel">
+    <div class="panel-head">
+      <div>
+        <h2>任务分解 · 模块 → 子任务 → 原子任务</h2>
+        <p class="panel-sub">点击模块或任务展开细节；可按 Agent、优先级筛选，也可直接搜索任务名。</p>
+      </div>
+      <div class="tree-toolbar">
+        <input type="search" id="tree-search" class="input" placeholder="搜索任务 / 模块…" aria-label="搜索任务">
+        <select id="filter-agent" class="select" aria-label="按 Agent 筛选"><option value="">全部 Agent</option></select>
+        <select id="filter-priority" class="select" aria-label="按优先级筛选">
+          <option value="">全部优先级</option>
+          <option value="P0">P0</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+        </select>
+        <button class="btn-mini" type="button" id="expand-all">展开全部</button>
+        <button class="btn-mini" type="button" id="collapse-all">收起全部</button>
+      </div>
+    </div>
+    <p class="tree-count" id="tree-count"></p>
+    <div class="tree-wrap" id="tree-root"></div>
+  </section>
+
+  <section class="panel" id="panel-graph" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>Agent 编排 · 依赖 DAG</h2>
+        <p class="panel-sub">节点为任务或 Agent，边为依赖 / 流转；支持缩放、拖拽、悬停查看详情。任务较多时可用「模块筛选」下钻查看单个模块的 DAG。</p>
+      </div>
+      <div class="graph-toolbar">
+        <select id="view-mode" class="select" aria-label="视图">
+          <option value="module" selected>模块 DAG（概览）</option>
+          <option value="task">任务 DAG（明细）</option>
+          <option value="agent">Agent 协作图</option>
+        </select>
+        <select id="graph-module" class="select" aria-label="模块筛选" disabled>
+          <option value="">全部模块</option>
+        </select>
+        <select id="layout-mode" class="select" aria-label="布局">
+          <option value="hierarchical">波次分层</option>
+          <option value="force">力导向</option>
+        </select>
+        <select id="color-mode" class="select" aria-label="着色方式" disabled>
+          <option value="module">按模块着色</option>
+          <option value="agent">按 Agent 着色</option>
+          <option value="priority">按优先级着色</option>
+          <option value="wave">按波次着色</option>
+        </select>
+        <label class="switch"><input type="checkbox" id="show-critical"> 关键路径</label>
+        <div class="segmented" role="group" aria-label="缩放">
+          <button type="button" id="graph-zoom-in" title="放大">＋</button>
+          <button type="button" id="graph-zoom-out" title="缩小">－</button>
+          <button type="button" id="graph-fit" title="适应窗口">⤢</button>
+        </div>
+      </div>
+    </div>
+    <div class="graph-layout">
+      <div class="graph-canvas" id="graph"></div>
+      <aside class="graph-aside" id="graph-aside"></aside>
+      <p class="graph-hint" id="graph-hint" hidden>任务较多，建议用上方「模块筛选」下钻到单个模块查看明细</p>
+    </div>
+    <div class="legend" id="graph-legend"></div>
+  </section>
+
+  <section class="panel" id="panel-waves" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>执行波次 · 并行 / 串行分组</h2>
+        <p class="panel-sub">按关键路径时间窗口切分，同一波次内的任务可并行推进；点击任务可跳转 DAG 定位。</p>
+      </div>
+      <div class="wave-summary" id="wave-summary"></div>
+    </div>
+    <div class="waves-wrap" id="waves-root"></div>
+  </section>
+
+  <section class="panel" id="panel-data" role="tabpanel" hidden>
+    <div class="panel-head">
+      <div>
+        <h2>数据与配置</h2>
+        <p class="panel-sub">任务分解与编排结果为结构化 JSON；模板与规则全部外置在 config/ 目录。</p>
+      </div>
+      <div class="data-actions">
+        <button class="btn-ghost" type="button" id="copy-json">复制 JSON</button>
+        <button class="btn-primary small" type="button" id="download-json-2">下载 plan.json</button>
+      </div>
+    </div>
+
+    <div class="data-grid">
+      <article class="data-card">
+        <h3>配置文件</h3>
+        <ul class="config-list">
+          {% for file in plan.config_meta.files %}
+          <li><code>{{ file.path }}</code><span>{{ file.desc }}</span></li>
+          {% endfor %}
+        </ul>
+      </article>
+      <article class="data-card">
+        <h3>扩展点</h3>
+        <ul class="extend-list">
+          {% for item in plan.config_meta.extend %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+      <article class="data-card">
+        <h3>大模型接入</h3>
+        <p class="muted">
+          当前模式：<b>{{ plan.config_meta.llm.name }}</b>（{{ '已启用' if plan.config_meta.llm.enabled else '未启用，纯规则运行' }}）。
+          设置 <code>SE_WORKFLOW_LLM=openai</code> 与 <code>SE_LLM_BASE_URL</code> / <code>SE_LLM_API_KEY</code>
+          后，解析层会额外补充需求模块；任何失败都会自动回退到规则结果。
+        </p>
+      </article>
+    </div>
+
+    <details class="json-details">
+      <summary>查看完整 JSON（{{ plan.stats.tasks }} 个任务 · {{ plan.edges | length }} 条依赖）</summary>
+      <pre id="plan-json"></pre>
+    </details>
+  </section>
+</main>
+
+<footer class="result-footer">
+  <span>SE Workflow Studio · 规则驱动，可解释、可定制</span>
+  <span>{{ plan.stats.modules }} 个模块 · {{ plan.stats.tasks }} 个任务 · {{ plan.stats.agents }} 个 Agent</span>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/vis-network.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/result.js') }}" defer></script>
+{% endblock %}
