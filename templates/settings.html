@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}设置 · LLM 配置 · SE Workflow Studio{% endblock %}
+{% block body_class %}page-settings{% endblock %}
+
+{% block content %}
+<main class="settings-page">
+  <section class="settings-head">
+    <p class="eyebrow">CONFIGURATION</p>
+    <h1>LLM 接入与密钥安全</h1>
+    <p class="lede">
+      项目通过 <code>.env</code> 读取大模型配置，代码与仓库中不出现真实 Key。
+      修改 <code>.env</code> 后重启服务即可生效；网页只展示掩码后的状态。
+    </p>
+  </section>
+
+  <section class="status-banner {{ 'is-llm' if settings.configured else 'is-mock' }}">
+    <span class="status-dot {{ 'ok' if settings.configured else 'warn' }}"></span>
+    <div>
+      <h2>{{ settings.mode_label }}</h2>
+      <p>
+        {% if settings.configured %}
+        已检测到 <code>LLM_API_KEY</code>，生成时会真实调用 <b>{{ settings.model }}</b>，两阶段 JSON 解析失败会自动纠错重试。
+        {% else %}
+        未检测到 <code>LLM_API_KEY</code>。当前会自动使用 Mock 规则演示；配置 Key 后重启即可切换为真实 LLM。
+        {% endif %}
+      </p>
+    </div>
+    <button class="btn-primary small" type="button" id="btn-test-llm">测试连接</button>
+  </section>
+  <p class="test-result" id="test-result" hidden></p>
+
+  <section class="settings-grid">
+    <article class="settings-card">
+      <h2>当前配置</h2>
+      <dl class="settings-facts">
+        <div><dt>运行模式</dt><dd>{{ settings.mode_label }}</dd></div>
+        <div><dt>模型名</dt><dd><code>{{ settings.model or '未设置' }}</code></dd></div>
+        <div><dt>Base URL</dt><dd><code>{{ settings.base_url or '未设置' }}</code></dd></div>
+        <div><dt>API Key</dt><dd><code>{{ settings.api_key_masked or '未配置' }}</code><span class="muted-inline">仅掩码显示</span></dd></div>
+        <div><dt>Temperature</dt><dd>{{ settings.temperature }}</dd></div>
+        <div><dt>超时 / 重试</dt><dd>{{ settings.timeout }} 秒 · {{ settings.max_retries }} 次纠错</dd></div>
+        <div><dt>允许 Mock</dt><dd>{{ '是' if settings.allow_mock else '否' }}</dd></div>
+        <div><dt>强制 Mock</dt><dd>{{ '是' if settings.force_mock else '否' }}</dd></div>
+        <div><dt>.env 文件</dt><dd>{{ '已找到' if settings.env_exists else '未找到' }} · {{ settings.env_file }}</dd></div>
+      </dl>
+    </article>
+
+    <article class="settings-card">
+      <h2>接入步骤</h2>
+      <ol class="steps-list">
+        <li>复制模板：<code>copy .env.example .env</code>（macOS / Linux 用 <code>cp</code>）。</li>
+        <li>填入自己的 <code>LLM_API_KEY</code>，按服务商修改 <code>LLM_BASE_URL</code> 与 <code>LLM_MODEL</code>。</li>
+        <li>重启服务：<code>python app.py</code>。</li>
+        <li>回到本页点击「测试连接」确认可用，再回工作台生成。</li>
+      </ol>
+      <pre class="code-block">LLM_API_KEY=sk-你的Key
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_MODEL=deepseek-chat</pre>
+      <p class="muted">
+        兼容任何 OpenAI 风格的 <code>/chat/completions</code> 接口。
+        如果服务商不支持 <code>response_format</code>，客户端会自动去掉该参数重试。
+      </p>
+    </article>
+  </section>
+
+  <section class="settings-card security-card">
+    <h2>密钥安全约定</h2>
+    <ul class="security-list">
+      <li><code>.gitignore</code> 已忽略 <code>.env</code>、<code>data/</code> 与常见缓存目录，Key 不会被提交。</li>
+      <li>程序只从 <code>.env</code> / 环境变量读取 Key；页面与 API 只返回掩码，不返回完整值。</li>
+      <li>日志只记录阶段、耗时、任务数等元信息，不打印请求头与 Key。</li>
+      <li>方案 JSON 与导出文件不包含 Key，只包含模型名与 base_url。</li>
+    </ul>
+  </section>
+
+  <section class="settings-card">
+    <div class="card-head">
+      <h2>Prompt 模板（{{ prompt_version }}）</h2>
+      <span class="badge ghost">集中在 config/prompts.py</span>
+    </div>
+    <details class="prompt-details" open>
+      <summary>阶段一 · 任务分解 Prompt</summary>
+      <h3>System</h3>
+      <pre class="prompt-pre">{{ decompose_system }}</pre>
+      <h3>User</h3>
+      <pre class="prompt-pre">{{ decompose_user }}</pre>
+    </details>
+    <details class="prompt-details">
+      <summary>阶段二 · Agent 编排 Prompt</summary>
+      <h3>System</h3>
+      <pre class="prompt-pre">{{ orchestrate_system }}</pre>
+      <h3>User</h3>
+      <pre class="prompt-pre">{{ orchestrate_user }}</pre>
+    </details>
+  </section>
+
+  <section class="settings-card">
+    <h2>可扩展的位置</h2>
+    <ul class="config-list">
+      <li><code>config/settings.py</code><span>读取 .env、解析类型、掩码 Key</span></li>
+      <li><code>config/prompts.py</code><span>两阶段 Prompt 与纠错 Prompt</span></li>
+      <li><code>config/agents.py</code><span>Agent 类型、职责、颜色与别名归一化</span></li>
+      <li><code>config/rules.py</code><span>任务数量、工作量、阶段名称、示例需求</span></li>
+      <li><code>engine/llm_client.py</code><span>OpenAI 兼容客户端（超时 / 错误映射）</span></li>
+      <li><code>engine/schema.py</code><span>JSON 归一化、校验、计划组装</span></li>
+      <li><code>engine/graph.py</code><span>DAG 分层、CPM 关键路径、并行分组</span></li>
+      <li><code>engine/mock.py</code><span>无 Key 时的规则兜底</span></li>
+    </ul>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/settings.js') }}" defer></script>
+{% endblock %}

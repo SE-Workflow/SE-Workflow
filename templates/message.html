@@ -4,16 +4,13 @@
 {% block title %}{{ title }} · SE Workflow Studio{% endblock %}
 
 {% block content %}
-<header class="site-header">
-  <a class="brand" href="{{ url_for('index') }}">
-    <span class="brand-mark">◈</span>
-    <span>SE Workflow <b>Studio</b></span>
-  </a>
-</header>
 <main class="message-page">
   <p class="eyebrow">提示</p>
   <h1>{{ title }}</h1>
   <p class="lede">{{ message }}</p>
-  <a class="btn-primary" href="{{ url_for('index') }}">回到输入页 →</a>
+  <div class="message-actions">
+    <a class="btn-primary" href="{{ url_for('index') }}">回到工作台 →</a>
+    <a class="btn-ghost" href="{{ url_for('settings_page') }}">查看设置</a>
+  </div>
 </main>
 {% endblock %}

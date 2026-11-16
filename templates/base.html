@@ -3,12 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}SE Workflow Studio · 任务分解与 Agent 编排{% endblock %}</title>
-  <meta name="description" content="输入一句需求，自动生成分层任务树与可交互的 Agent 编排 DAG。">
+  <title>{% block title %}SE Workflow Studio · 任务分解 + Agent 编排{% endblock %}</title>
+  <meta name="description" content="输入一句需求，由大模型分两阶段完成任务分解与 Agent 编排，产出唯一一幅可编辑的工作流程图。">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%E2%97%88%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="brand-mark">◈</span>
+      <span>SE Workflow <b>Studio</b></span>
+    </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">工作台</a>
+      <a class="nav-link {% if request.endpoint == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}">设置</a>
+      {% if settings is defined and settings %}
+      <span class="badge mode-badge {{ 'is-llm' if settings.configured else 'is-mock' }}">
+        <span class="mode-dot"></span>{{ settings.mode_label }}
+      </span>
+      {% endif %}
+      {% block nav_actions %}{% endblock %}
+    </nav>
+  </header>
   {% block content %}{% endblock %}
   {% block scripts %}{% endblock %}
 </body>

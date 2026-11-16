@@ -1,11 +1,12 @@
 """Agent 类型配置。
 
-新增一种 Agent 只需在这里追加条目；任务模板、编排结果和前端图例都会自动读取。
+新增一种 Agent 只需在这里追加条目；任务表单、图例、LLM Prompt 中的
+可选 Agent 清单都会自动读取此处配置。
 字段说明：
     name  展示名
-    role  职责说明
-    color 主题色（任务 DAG、Agent 协作图、任务树共用）
-    icon  界面上的小图标
+    role  职责说明（同时作为 LLM 编排时的角色约束）
+    color 主题色（流程图方框边框 / 图例）
+    icon  流程图方框与图例上的小图标
 """
 
 AGENTS = {
@@ -84,6 +85,55 @@ AGENTS = {
 }
 
 DEFAULT_AGENT = "backend"
+AGENT_IDS = tuple(AGENTS)
+
+# LLM 可能返回中文 / 近义写法，这里做一次归一化，避免因 Agent 名不规范而失败。
+AGENT_ALIASES = {
+    "产品经理": "pm",
+    "产品": "pm",
+    "项目经理": "pm",
+    "pm": "pm",
+    "product": "pm",
+    "设计": "ux",
+    "ui": "ux",
+    "ux": "ux",
+    "design": "ux",
+    "架构师": "architect",
+    "架构": "architect",
+    "architect": "architect",
+    "architecture": "architect",
+    "后端": "backend",
+    "服务端": "backend",
+    "backend": "backend",
+    "前端": "frontend",
+    "front-end": "frontend",
+    "frontend": "frontend",
+    "客户端": "mobile",
+    "移动端": "mobile",
+    "mobile": "mobile",
+    "ios": "mobile",
+    "android": "mobile",
+    "数据": "data",
+    "算法": "data",
+    "data": "data",
+    "ai": "ai",
+    "算法工程师": "ai",
+    "模型": "ai",
+    "llm": "ai",
+    "安全": "security",
+    "风控": "security",
+    "合规": "security",
+    "security": "security",
+    "测试": "qa",
+    "质量": "qa",
+    "qa": "qa",
+    "test": "qa",
+    "运维": "devops",
+    "部署": "devops",
+    "devops": "devops",
+    "运营": "ops",
+    "ops": "ops",
+}
 
 # 自由输入的补充需求没有显式 Agent 归属时，用关键词推断一个合理的执行者。
 AGENT_GUESS_RULES = [
@@ -98,3 +148,36 @@ AGENT_GUESS_RULES = [
     (("后台", "运营", "管理台", "看板"), "ops"),
     (("需求", "验收", "范围", "流程"), "pm"),
 ]
+
+
+def agent_catalog_text() -> str:
+    """给 LLM Prompt 用的 Agent 清单（每行一个，含职责）。"""
+    return "\n".join(
+        f'- `{agent_id}`：{meta["name"]} —— {meta["role"]}' for agent_id, meta in AGENTS.items()
+    )
+
+
+def resolve_agent(value: object, fallback: str = DEFAULT_AGENT) -> str:
+    """把 LLM / 用户输入的 Agent 写法归一化到 AGENTS 的 key。"""
+    raw = str(value or "").strip()
+    if not raw:
+        return fallback
+    lowered = raw.lower()
+    if lowered in AGENTS:
+        return lowered
+    if lowered in AGENT_ALIASES:
+        return AGENT_ALIASES[lowered]
+    # 去掉 Agent / agent 后缀与空格，再试一次
+    simplified = lowered.replace(" agent", "").replace("agent", "").strip(" -_")
+    if simplified in AGENTS:
+        return simplified
+    if simplified in AGENT_ALIASES:
+        return AGENT_ALIASES[simplified]
+    # 名称包含匹配："Backend Agent" / "后端 Agent"
+    for agent_id, meta in AGENTS.items():
+        if lowered in meta["name"].lower() or meta["name"].lower().split()[0] in lowered:
+            return agent_id
+    for alias, agent_id in AGENT_ALIASES.items():
+        if alias in lowered:
+            return agent_id
+    return fallback

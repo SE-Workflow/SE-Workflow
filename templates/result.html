@@ -1,167 +1,139 @@
 {% extends "base.html" %}
 
-{% block title %}{{ plan.profile.domain.label }} · 任务分解与 Agent 编排{% endblock %}
+{% block title %}工作流程图 · {{ plan.requirement.raw[:32] }}{% endblock %}
 {% block body_class %}page-result{% endblock %}
 
-{% block content %}
-<script id="plan-data" type="application/json">{{ plan | tojson }}</script>
+{% block nav_actions %}
+<button class="btn-ghost btn-nav" type="button" id="btn-json" title="查看底层 JSON">JSON</button>
+<button class="btn-ghost btn-nav" type="button" id="btn-export" title="导出方案 JSON">导出</button>
+<button class="btn-primary small btn-nav" type="button" id="btn-save" title="保存到服务端">保存</button>
+{% endblock %}
 
-<header class="topbar">
-  <a class="brand" href="{{ url_for('index') }}">
-    <span class="brand-mark">◈</span>
-    <span>SE Workflow <b>Studio</b></span>
-  </a>
-  <div class="topbar-actions">
-    <span class="badge ghost">{{ plan.meta.engine }} · v{{ plan.meta.version }}</span>
-    <button class="btn-ghost" type="button" id="download-json">导出 JSON</button>
-    <a class="btn-ghost" href="{{ url_for('index') }}">重新输入</a>
-  </div>
-</header>
+{% block content %}
+<script id="bootstrap-data" type="application/json">{{ {"plan": plan, "view": view, "plan_id": plan_id, "settings": settings, "agents_catalog": agents_catalog, "prompt_version": prompt_version} | tojson }}</script>
 
 <main class="result-page">
-  <section class="result-hero">
-    <div class="requirement-block">
-      <p class="eyebrow">需求输入 · {{ plan.profile.domain.label }}</p>
-      <h1 class="req-raw">{{ plan.profile.raw }}</h1>
-      <p class="req-summary">{{ plan.profile.summary }}</p>
-      <div class="chip-row" id="profile-chips"></div>
-      <p class="generated">生成于 {{ plan.meta.generated_at }} · {{ plan.profile.domain.confidence * 100 }}% 识别置信度</p>
-    </div>
-    <div class="stat-grid" id="stat-grid"></div>
-  </section>
-
-  <nav class="tabs" id="tabs" role="tablist" aria-label="结果视图">
-    <button class="tab active" type="button" role="tab" data-tab="tree" aria-selected="true">任务分解</button>
-    <button class="tab" type="button" role="tab" data-tab="graph" aria-selected="false">Agent 编排</button>
-    <button class="tab" type="button" role="tab" data-tab="waves" aria-selected="false">执行波次</button>
-    <button class="tab" type="button" role="tab" data-tab="data" aria-selected="false">数据与配置</button>
-  </nav>
-
-  <section class="panel" id="panel-tree" role="tabpanel">
-    <div class="panel-head">
-      <div>
-        <h2>任务分解 · 模块 → 子任务 → 原子任务</h2>
-        <p class="panel-sub">点击模块或任务展开细节；可按 Agent、优先级筛选，也可直接搜索任务名。</p>
-      </div>
-      <div class="tree-toolbar">
-        <input type="search" id="tree-search" class="input" placeholder="搜索任务 / 模块…" aria-label="搜索任务">
-        <select id="filter-agent" class="select" aria-label="按 Agent 筛选"><option value="">全部 Agent</option></select>
-        <select id="filter-priority" class="select" aria-label="按优先级筛选">
-          <option value="">全部优先级</option>
-          <option value="P0">P0</option>
-          <option value="P1">P1</option>
-          <option value="P2">P2</option>
-        </select>
-        <button class="btn-mini" type="button" id="expand-all">展开全部</button>
-        <button class="btn-mini" type="button" id="collapse-all">收起全部</button>
+  <section class="result-head">
+    <div class="req-block">
+      <p class="eyebrow">WORKFLOW GRAPH · 任务分解 + Agent 编排</p>
+      <h1 class="req-title">{{ plan.requirement.raw }}</h1>
+      <p class="req-summary">{{ plan.requirement.summary }}</p>
+      <div class="meta-chips" id="meta-chips">
+        {% if plan.requirement.domain %}<span class="chip domain">{{ plan.requirement.domain }}</span>{% endif %}
+        {% if plan.requirement.scale %}<span class="chip scale">{{ plan.requirement.scale }}</span>{% endif %}
+        {% for platform in plan.requirement.platforms %}<span class="chip">{{ platform }}</span>{% endfor %}
+        <span class="chip mode {{ 'is-llm' if plan.meta.engine != 'mock' else 'is-mock' }}">{{ plan.meta.engine_label }}</span>
+        {% if plan.meta.model %}<span class="chip muted-chip">{{ plan.meta.model }}</span>{% endif %}
+        <span class="chip muted-chip">生成于 {{ plan.meta.generated_at }}</span>
+        {% if plan.meta.edited %}<span class="chip edited-chip">已编辑</span>{% endif %}
       </div>
     </div>
-    <p class="tree-count" id="tree-count"></p>
-    <div class="tree-wrap" id="tree-root"></div>
+    <div class="stat-strip" id="stat-strip">
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.nodes }}</span><span class="stat-label">任务方框</span></div>
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.edges }}</span><span class="stat-label">依赖连线</span></div>
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.agents }}</span><span class="stat-label">承接 Agent</span></div>
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.stages }}</span><span class="stat-label">执行阶段</span></div>
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.critical_days }}<small>天</small></span><span class="stat-label">关键路径</span></div>
+      <div class="stat-card"><span class="stat-value">{{ plan.stats.total_effort }}<small>人天</small></span><span class="stat-label">总工作量</span></div>
+    </div>
   </section>
 
-  <section class="panel" id="panel-graph" role="tabpanel" hidden>
-    <div class="panel-head">
-      <div>
-        <h2>Agent 编排 · 依赖 DAG</h2>
-        <p class="panel-sub">节点为任务或 Agent，边为依赖 / 流转；支持缩放、拖拽、悬停查看详情。任务较多时可用「模块筛选」下钻查看单个模块的 DAG。</p>
+  {% if plan.warnings %}
+  <section class="warning-banner {{ 'is-degraded' if plan.meta.degraded else '' }}" id="warning-banner">
+    <span class="warning-icon" aria-hidden="true">{{ '⚠' if plan.meta.degraded else 'ℹ' }}</span>
+    <div>
+      <b>{{ '已降级生成' if plan.meta.degraded else '生成提示' }}</b>
+      <ul>
+        {% for warning in plan.warnings %}<li>{{ warning }}</li>{% endfor %}
+      </ul>
+    </div>
+    <button class="banner-close" type="button" id="btn-close-banner" aria-label="关闭提示">×</button>
+  </section>
+  {% endif %}
+
+  <section class="graph-toolbar" aria-label="流程图工具栏">
+    <div class="toolbar-group toolbar-search">
+      <input type="search" id="search-input" class="input" placeholder="搜索任务名 / 模块…" aria-label="搜索任务">
+    </div>
+    <div class="toolbar-group">
+      <select id="filter-agent" class="select" aria-label="按 Agent 筛选"><option value="">全部 Agent</option></select>
+      <select id="filter-priority" class="select" aria-label="按优先级筛选">
+        <option value="">全部优先级</option>
+        <option value="P0">P0 · 必须</option>
+        <option value="P1">P1 · 重要</option>
+        <option value="P2">P2 · 增强</option>
+      </select>
+      <select id="layout-select" class="select" aria-label="布局方式">
+        <option value="hierarchical">分层布局</option>
+        <option value="force">力导向布局</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
+      <label class="switch"><input type="checkbox" id="toggle-critical" checked> 高亮关键路径</label>
+      <button class="btn-mini" type="button" id="btn-link-mode" title="点击起点方框，再点终点方框，创建依赖连线">连线模式</button>
+      <button class="btn-mini" type="button" id="btn-add-node">＋ 新增任务</button>
+    </div>
+    <div class="toolbar-group toolbar-right">
+      <button class="btn-mini" type="button" id="btn-relayout" title="清除手动拖拽位置，恢复自动分层排版">重排</button>
+      <button class="btn-mini" type="button" id="btn-reset" title="放弃本次编辑，恢复生成时的方案">还原</button>
+      <div class="segmented" role="group" aria-label="缩放">
+        <button type="button" id="btn-zoom-in" title="放大">＋</button>
+        <button type="button" id="btn-zoom-out" title="缩小">－</button>
+        <button type="button" id="btn-fit" title="适应窗口（查看全图）">⤢</button>
       </div>
-      <div class="graph-toolbar">
-        <select id="view-mode" class="select" aria-label="视图">
-          <option value="module" selected>模块 DAG（概览）</option>
-          <option value="task">任务 DAG（明细）</option>
-          <option value="agent">Agent 协作图</option>
-        </select>
-        <select id="graph-module" class="select" aria-label="模块筛选" disabled>
-          <option value="">全部模块</option>
-        </select>
-        <select id="layout-mode" class="select" aria-label="布局">
-          <option value="hierarchical">波次分层</option>
-          <option value="force">力导向</option>
-        </select>
-        <select id="color-mode" class="select" aria-label="着色方式" disabled>
-          <option value="module">按模块着色</option>
-          <option value="agent">按 Agent 着色</option>
-          <option value="priority">按优先级着色</option>
-          <option value="wave">按波次着色</option>
-        </select>
-        <label class="switch"><input type="checkbox" id="show-critical"> 关键路径</label>
-        <div class="segmented" role="group" aria-label="缩放">
-          <button type="button" id="graph-zoom-in" title="放大">＋</button>
-          <button type="button" id="graph-zoom-out" title="缩小">－</button>
-          <button type="button" id="graph-fit" title="适应窗口">⤢</button>
+    </div>
+  </section>
+
+  <p class="link-mode-hint" id="link-mode-hint" hidden>
+    连线模式：先点击起点任务，再点击终点任务；按 <kbd>Esc</kbd> 退出。
+  </p>
+
+  <section class="workspace">
+    <div class="canvas-column">
+      <div class="canvas-card">
+        <div id="graph" class="graph-canvas" role="application" aria-label="可编辑的工作流程图"></div>
+        <div class="graph-empty" id="graph-empty" hidden>
+          <p>当前筛选条件下没有任务。</p>
+          <button class="btn-ghost" type="button" id="btn-clear-filters">清除筛选</button>
         </div>
+        <div class="graph-tip">点击方框编辑 · 拖拽方框自由移动 · 点「重排」恢复自动布局 · 滚轮缩放</div>
+        <div class="save-state" id="save-state"></div>
       </div>
-    </div>
-    <div class="graph-layout">
-      <div class="graph-canvas" id="graph"></div>
-      <aside class="graph-aside" id="graph-aside"></aside>
-      <p class="graph-hint" id="graph-hint" hidden>任务较多，建议用上方「模块筛选」下钻到单个模块查看明细</p>
-    </div>
-    <div class="legend" id="graph-legend"></div>
-  </section>
-
-  <section class="panel" id="panel-waves" role="tabpanel" hidden>
-    <div class="panel-head">
-      <div>
-        <h2>执行波次 · 并行 / 串行分组</h2>
-        <p class="panel-sub">按关键路径时间窗口切分，同一波次内的任务可并行推进；点击任务可跳转 DAG 定位。</p>
-      </div>
-      <div class="wave-summary" id="wave-summary"></div>
-    </div>
-    <div class="waves-wrap" id="waves-root"></div>
-  </section>
-
-  <section class="panel" id="panel-data" role="tabpanel" hidden>
-    <div class="panel-head">
-      <div>
-        <h2>数据与配置</h2>
-        <p class="panel-sub">任务分解与编排结果为结构化 JSON；模板与规则全部外置在 config/ 目录。</p>
-      </div>
-      <div class="data-actions">
-        <button class="btn-ghost" type="button" id="copy-json">复制 JSON</button>
-        <button class="btn-primary small" type="button" id="download-json-2">下载 plan.json</button>
-      </div>
+      <div class="legend" id="legend"></div>
     </div>
 
-    <div class="data-grid">
-      <article class="data-card">
-        <h3>配置文件</h3>
-        <ul class="config-list">
-          {% for file in plan.config_meta.files %}
-          <li><code>{{ file.path }}</code><span>{{ file.desc }}</span></li>
-          {% endfor %}
-        </ul>
-      </article>
-      <article class="data-card">
-        <h3>扩展点</h3>
-        <ul class="extend-list">
-          {% for item in plan.config_meta.extend %}
-          <li>{{ item }}</li>
-          {% endfor %}
-        </ul>
-      </article>
-      <article class="data-card">
-        <h3>大模型接入</h3>
-        <p class="muted">
-          当前模式：<b>{{ plan.config_meta.llm.name }}</b>（{{ '已启用' if plan.config_meta.llm.enabled else '未启用，纯规则运行' }}）。
-          设置 <code>SE_WORKFLOW_LLM=openai</code> 与 <code>SE_LLM_BASE_URL</code> / <code>SE_LLM_API_KEY</code>
-          后，解析层会额外补充需求模块；任何失败都会自动回退到规则结果。
-        </p>
-      </article>
-    </div>
-
-    <details class="json-details">
-      <summary>查看完整 JSON（{{ plan.stats.tasks }} 个任务 · {{ plan.edges | length }} 条依赖）</summary>
-      <pre id="plan-json"></pre>
-    </details>
+    <aside class="inspector-column">
+      <div class="side-card inspector-card" id="inspector"></div>
+      <div class="side-card" id="stage-card"></div>
+      <div class="side-card" id="agent-card"></div>
+      <div class="side-card" id="parallel-card"></div>
+    </aside>
   </section>
 </main>
 
 <footer class="result-footer">
-  <span>SE Workflow Studio · 规则驱动，可解释、可定制</span>
-  <span>{{ plan.stats.modules }} 个模块 · {{ plan.stats.tasks }} 个任务 · {{ plan.stats.agents }} 个 Agent</span>
+  <span>SE Workflow Studio · 方框是任务，连线与排版是 Agent 编排</span>
+  <span id="footer-meta">{{ plan.stats.nodes }} 个任务 · {{ plan.stats.edges }} 条依赖 · {{ plan.stats.agents }} 个 Agent</span>
 </footer>
+
+<div class="modal" id="json-modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="json-modal-title">
+    <header class="modal-head">
+      <h2 id="json-modal-title">方案 JSON</h2>
+      <button class="modal-close" type="button" id="btn-json-close" aria-label="关闭">×</button>
+    </header>
+    <pre class="json-pre" id="json-view"></pre>
+    <footer class="modal-foot">
+      <span class="muted" id="json-meta"></span>
+      <div class="modal-actions">
+        <button class="btn-ghost" type="button" id="btn-copy-json">复制 JSON</button>
+        <button class="btn-primary small" type="button" id="btn-download-json">下载 plan.json</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 {% endblock %}
 
 {% block scripts %}

@@ -3,25 +3,35 @@
 {% block body_class %}page-home{% endblock %}
 
 {% block content %}
-<header class="site-header">
-  <a class="brand" href="{{ url_for('index') }}">
-    <span class="brand-mark">◈</span>
-    <span>SE Workflow <b>Studio</b></span>
-  </a>
-  <div class="header-meta">
-    <span class="badge">Python · Flask</span>
-    <span class="badge ghost">规则引擎 · 可接 LLM</span>
-  </div>
-</header>
-
 <main class="home">
-  <section class="hero">
-    <p class="eyebrow">SE WORKFLOW · 任务分解 + AGENT 编排</p>
-    <h1>一句需求，<br><span class="grad">拆成任务树与可交互 DAG。</span></h1>
-    <p class="lede">
-      输入「我要做一个小红书」，或粘贴一段结构化设计规格。系统自动识别产品域与能力特征，
-      拆出分层的模块、子任务与原子任务，再编排依赖顺序、执行波次与 Agent 分工。
-    </p>
+  <section class="home-hero">
+    <div class="hero-copy">
+      <p class="eyebrow">SE WORKFLOW · V5 · LLM 两阶段编排</p>
+      <h1>一张工作流程图，<br><span class="grad">装下任务分解与 Agent 编排。</span></h1>
+      <p class="lede">
+        输入一句「我要做一个小红书」，或一份专业设计规格。大模型先把需求拆成一个个可执行任务，
+        再以这些任务为输入，编排依赖连线、分层顺序与并行分组，并给每个方框指派承接的 Agent。
+        最终结果只有一幅图：<b>方框是任务，连线与排版是编排</b>。
+      </p>
+    </div>
+    <aside class="config-card" aria-label="LLM 配置状态">
+      <div class="config-card-head">
+        <span class="status-dot {{ 'ok' if settings.configured else 'warn' }}"></span>
+        <span>LLM 配置</span>
+        <a href="{{ url_for('settings_page') }}" class="config-link">设置 →</a>
+      </div>
+      <p class="config-mode">{{ settings.mode_label }}</p>
+      <dl class="config-facts">
+        <div><dt>模型</dt><dd>{{ settings.model or '未设置' }}</dd></div>
+        <div><dt>Base URL</dt><dd title="{{ settings.base_url }}">{{ settings.base_url or '未设置' }}</dd></div>
+        <div><dt>API Key</dt><dd>{{ settings.api_key_masked or '未配置（Mock 演示）' }}</dd></div>
+      </dl>
+      {% if settings.configured %}
+      <p class="config-note">已从 <code>.env</code> 读取配置，生成时会真实调用大模型。Key 仅用于服务端请求，不会回显到页面。</p>
+      {% else %}
+      <p class="config-note">复制 <code>.env.example</code> 为 <code>.env</code> 并填入自己的 Key，重启后即可接入真实大模型；不配置也可以先用 Mock 演示全流程。</p>
+      {% endif %}
+    </aside>
   </section>
 
   <section class="composer">
@@ -36,7 +46,7 @@
         rows="7"
         required
         spellcheck="false"
-        placeholder="例如：我要做一个小红书 / 我要做微信 / 一段结构化的产品设计规格……">{{ requirement }}</textarea>
+        placeholder="例如：我要做一个小红书 / 我要做微信 / 为连锁健身房做一套会员运营 App……">{{ requirement }}</textarea>
       {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
       <div class="examples">
         <span class="examples-label">试试示例</span>
@@ -47,60 +57,64 @@
         {% endfor %}
       </div>
       <div class="composer-foot">
-        <p class="hint">无需登录 · 纯 Python 实现 · 结果可导出 JSON</p>
-        <button class="btn-primary" type="submit">
-          生成任务分解与编排 <span aria-hidden="true">→</span>
-        </button>
+        <p class="hint">Ctrl / Cmd + Enter 快速生成 · 结果可编辑、可保存、可导出 JSON</p>
+        <div class="composer-actions">
+          <button class="btn-ghost" type="submit" name="mode" value="mock">Mock 演示</button>
+          <button class="btn-primary" type="submit" name="mode" value="llm">
+            生成工作流程图 <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
     </form>
   </section>
 
   <section class="steps" aria-label="流程说明">
     <article class="step-card">
-      <span class="step-index">01</span>
-      <h2>输入需求</h2>
-      <p>抽象短句或长段专业规格都可以。解析层识别产品域、规模、平台与能力关键词。</p>
+      <span class="step-index">01 · 输入</span>
+      <h2>一句需求或专业规格</h2>
+      <p>抽象短句、长段 PRD、结构化功能清单都可以。系统会原样交给大模型，不做关键词模板匹配。</p>
     </article>
     <article class="step-card">
-      <span class="step-index">02</span>
-      <h2>任务分解</h2>
-      <p>PM Agent 产出「模块 → 子任务 → 原子任务」三层任务树，含优先级、工作量、依赖与验收标准。</p>
+      <span class="step-index">02 · 任务分解</span>
+      <h2>LLM 拆出一个个任务方框</h2>
+      <p>阶段一要求模型输出严格 JSON：任务 ID、名称、描述、所属模块、优先级、工作量、Agent 建议与验收标准。</p>
     </article>
     <article class="step-card">
-      <span class="step-index">03</span>
-      <h2>Agent 编排</h2>
-      <p>编排器计算依赖拓扑、关键路径与并行波次，用可缩放、可拖拽、可悬停的 DAG 图呈现。</p>
+      <span class="step-index">03 · Agent 编排</span>
+      <h2>LLM 决定连线与排版</h2>
+      <p>阶段二以任务清单为输入，生成依赖边、阶段分层、并行分组，并为每个任务指派承接 Agent。</p>
     </article>
   </section>
 
   <section class="feature-grid" aria-label="能力说明">
     <div class="feature">
-      <span class="feature-icon">🧩</span>
-      <h3>通用可定制</h3>
-      <p>产品域、任务模板、Agent 类型与编排规则全部集中在 <code>config/</code>，换需求即复用。</p>
+      <span class="feature-icon">🖱️</span>
+      <h3>点击方框即可编辑</h3>
+      <p>修改名称、描述、模块、优先级、工作量、验收标准与承接 Agent；支持新增 / 删除任务、增删依赖连线。</p>
     </div>
     <div class="feature">
       <span class="feature-icon">🔀</span>
-      <h3>DAG 可视化</h3>
-      <p>vis-network 渲染，支持缩放、拖拽、悬停详情、关键路径高亮与按模块 / Agent 着色。</p>
+      <h3>图即结果，实时同步</h3>
+      <p>vis-network 渲染分层 DAG；编辑后立即重算层级、关键路径与统计，并同步回写底层 JSON。</p>
     </div>
     <div class="feature">
-      <span class="feature-icon">⚙️</span>
-      <h3>纯规则可解释</h3>
-      <p>不依赖大模型也能跑通全流程；<code>engine/llm.py</code> 预留了真实模型接入接口。</p>
+      <span class="feature-icon">🔐</span>
+      <h3>Key 只留在 .env</h3>
+      <p>支持 OpenAI / DeepSeek / 通义 / Moonshot 等兼容接口；网页只显示掩码后的配置状态，代码与仓库中没有 Key。</p>
     </div>
   </section>
 </main>
 
 <footer class="site-footer">
-  <span>SE Workflow Studio</span>
-  <span>输入 → 分解 → 编排，全流程可解释</span>
+  <span>SE Workflow Studio · V5</span>
+  <span>输入 → LLM 分解 → LLM 编排 → 一幅可编辑工作流程图</span>
 </footer>
 
 <div class="loading-overlay" id="loading" hidden>
   <div class="loading-card">
     <span class="spinner" aria-hidden="true"></span>
-    <p>正在分解任务并编排 Agent 执行图…</p>
+    <p id="loading-stage">正在调用大模型分解任务…</p>
+    <p class="loading-sub">阶段一：任务分解 → 阶段二：Agent 编排</p>
   </div>
 </div>
 {% endblock %}
