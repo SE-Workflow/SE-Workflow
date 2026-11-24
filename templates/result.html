@@ -51,6 +51,18 @@
   </section>
   {% endif %}
 
+  <div class="view-tabs" role="tablist" aria-label="结果视图切换">
+    <button class="view-tab" role="tab" id="tab-decompose" type="button" data-view="decompose" aria-selected="false" aria-controls="pane-decompose">
+      <span class="vt-icon" aria-hidden="true">▦</span>任务分解
+      <small class="vt-count">{{ plan.stats.nodes }}</small>
+    </button>
+    <button class="view-tab is-active" role="tab" id="tab-graph" type="button" data-view="graph" aria-selected="true" aria-controls="pane-graph">
+      <span class="vt-icon" aria-hidden="true">⇄</span>工作流程图
+      <small class="vt-count">{{ plan.stats.edges }}</small>
+    </button>
+  </div>
+
+  <div class="view-pane" id="pane-graph" role="tabpanel" aria-labelledby="tab-graph">
   <section class="graph-toolbar" aria-label="流程图工具栏">
     <div class="toolbar-group toolbar-search">
       <input type="search" id="search-input" class="input" placeholder="搜索任务名 / 模块…" aria-label="搜索任务">
@@ -109,6 +121,25 @@
       <div class="side-card" id="parallel-card"></div>
     </aside>
   </section>
+  </div><!-- /pane-graph -->
+
+  <div class="view-pane" id="pane-decompose" role="tabpanel" aria-labelledby="tab-decompose" hidden>
+    <section class="decompose-toolbar" aria-label="任务分解工具栏">
+      <div class="toolbar-group">
+        <input type="search" id="decompose-search" class="input" placeholder="搜索任务名 / 编号 / 模块 / 描述…" aria-label="搜索分解任务">
+      </div>
+      <div class="toolbar-group toolbar-right">
+        <span class="decompose-hint">按模块分组 · 编号顺序即分解顺序 · 点前置编号可跳转流程图</span>
+      </div>
+    </section>
+
+    <div class="decompose-overview" id="decompose-overview"></div>
+    <div class="decompose-body" id="decompose-body"></div>
+    <div class="decompose-empty" id="decompose-empty" hidden>
+      <p>没有匹配的任务。</p>
+      <button class="btn-ghost" type="button" id="btn-decompose-clear">清除搜索</button>
+    </div>
+  </div><!-- /pane-decompose -->
 </main>
 
 <footer class="result-footer">
