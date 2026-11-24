@@ -1359,3 +1359,210 @@ button.dep-chip:hover { border-color: #a5b4fc; background: #eef2ff; }
   .modal-card { max-height: 92vh; }
   .modal-foot { align-items: flex-start; }
 }
+
+/* =====================================================================
+   任务分解板块（WBS 清单视图）
+   ===================================================================== */
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 650;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+.view-tab .vt-icon { font-size: 14px; line-height: 1; }
+.view-tab .vt-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+.view-tab:hover { border-color: #c7d2fe; color: var(--primary); }
+.view-tab.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  color: #fff;
+  box-shadow: 0 12px 24px -12px rgba(79, 70, 225, 0.8);
+}
+.view-tab.is-active .vt-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+/* 分解视图工具栏 */
+.decompose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.decompose-toolbar .input { min-width: 300px; }
+.decompose-hint { font-size: 12px; color: var(--muted-light); }
+
+/* 概览统计 */
+.decompose-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.dc-stat {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.dc-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.dc-value small { margin-left: 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.dc-label { font-size: 11.5px; color: var(--muted); }
+
+/* 模块分组 */
+.wbs-group { margin-bottom: 22px; }
+.wbs-group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.wbs-group-index {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.wbs-group-head h2 { font-size: 15.5px; font-weight: 700; }
+.wbs-group-meta { font-size: 12px; color: var(--muted); }
+
+.wbs-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 12px;
+}
+.wbs-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--agent, var(--primary));
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.16s ease, transform 0.16s ease;
+}
+.wbs-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.wbs-card-top { display: flex; align-items: center; gap: 9px; }
+.wbs-id {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+.wbs-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wbs-priority {
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 12%, #fff);
+  white-space: nowrap;
+}
+.wbs-desc {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wbs-acceptance {
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--surface-soft);
+  border: 1px dashed var(--line);
+}
+.wbs-field-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--muted-light);
+  text-transform: uppercase;
+}
+.wbs-acceptance p { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.65; }
+.wbs-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.wbs-agent { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink-soft); }
+.wbs-agent-dot { width: 8px; height: 8px; border-radius: 3px; background: var(--c); }
+.wbs-effort { color: var(--muted); font-variant-numeric: tabular-nums; }
+.wbs-deps { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+.wbs-dep { font-family: var(--mono); }
+
+.decompose-empty {
+  text-align: center;
+  padding: 50px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--muted);
+}
+.decompose-empty .btn-ghost { margin-top: 12px; }
+
+@media (max-width: 900px) {
+  .decompose-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wbs-cards { grid-template-columns: 1fr; }
+  .decompose-toolbar .input { width: 100%; min-width: 0; }
+}

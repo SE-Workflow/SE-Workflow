@@ -43,6 +43,8 @@
     planId: boot.plan_id,
     settings: boot.settings || {},
     agentsCatalog: boot.agents_catalog || [],
+    activeView: "graph",
+    decomposeQuery: "",
     selectedNodeId: null,
     selectedEdgeId: null,
     dirty: false,
@@ -1084,6 +1086,7 @@
     renderAgents();
     renderParallel();
     renderInspector();
+    renderDecompose();
     renderMetaChips();
     updateFooter();
   }
@@ -1218,6 +1221,149 @@
       <div class="card-head"><h2>可并行任务</h2><span class="count-badge">${groups.length}</span></div>
       <div class="parallel-list">${body}</div>
     `;
+  }
+
+  // ------------------------------------------------------------------
+  // 任务分解视图（WBS 清单：阶段一产物的专属板块）
+  // ------------------------------------------------------------------
+  function renderDecompose() {
+    const nodes = state.plan.nodes || [];
+    const query = state.decomposeQuery.trim().toLowerCase();
+    const matchNode = (node) => {
+      if (!query) return true;
+      return [
+        node.id,
+        node.name,
+        node.module,
+        node.description,
+        node.acceptance,
+        node.agent_name,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    };
+
+    // 概览统计基于全量数据，不受搜索影响
+    const moduleSet = new Set(nodes.map((node) => node.module));
+    const totalEffort = nodes.reduce((sum, node) => sum + Number(node.effort || 0), 0);
+    const p0Count = nodes.filter((node) => node.priority === "P0").length;
+    const overviewCards = [
+      [nodes.length, "分解任务"],
+      [moduleSet.size, "涉及模块"],
+      [p0Count, "P0 必须任务"],
+      [`${fmt(totalEffort)}<small>人天</small>`, "估算总工作量"],
+    ];
+    $("decompose-overview").innerHTML = overviewCards
+      .map(
+        ([value, label]) =>
+          `<div class="dc-stat"><span class="dc-value">${value}</span><span class="dc-label">${label}</span></div>`
+      )
+      .join("");
+
+    // 按模块分组（保持模块首次出现顺序），组内按分解顺序排序
+    const groups = new Map();
+    nodes.forEach((node) => {
+      if (!matchNode(node)) return;
+      if (!groups.has(node.module)) groups.set(node.module, []);
+      groups.get(node.module).push(node);
+    });
+    groups.forEach((list) =>
+      list.sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+    );
+
+    let visibleCount = 0;
+    let groupIndex = 0;
+    const html = [...groups.entries()]
+      .map(([module, list]) => {
+        visibleCount += list.length;
+        groupIndex += 1;
+        const groupEffort = list.reduce((sum, node) => sum + Number(node.effort || 0), 0);
+        return `
+        <section class="wbs-group">
+          <header class="wbs-group-head">
+            <span class="wbs-group-index">${groupIndex}</span>
+            <h2>${esc(module)}</h2>
+            <span class="wbs-group-meta">${list.length} 个任务 · ${fmt(groupEffort)} 人天</span>
+          </header>
+          <div class="wbs-cards">${list.map(wbsCard).join("")}</div>
+        </section>`;
+      })
+      .join("");
+
+    $("decompose-body").innerHTML = html;
+    $("decompose-empty").hidden = visibleCount > 0;
+  }
+
+  function wbsCard(node) {
+    const priority = PRIORITY_META[node.priority] || PRIORITY_META.P2;
+    const deps = node.depends_on || [];
+    return `
+    <article class="wbs-card" style="--agent:${esc(node.agent_color)}">
+      <div class="wbs-card-top">
+        <span class="wbs-id">${esc(node.id)}</span>
+        <h3 class="wbs-name" title="${esc(node.name)}">${esc(node.name)}</h3>
+        <span class="wbs-priority" style="--pc:${esc(priority.color)}">${esc(priority.label)}</span>
+      </div>
+      <p class="wbs-desc">${esc(node.description)}</p>
+      <div class="wbs-acceptance">
+        <span class="wbs-field-label">验收标准</span>
+        <p>${esc(node.acceptance)}</p>
+      </div>
+      <div class="wbs-meta">
+        <span class="wbs-agent">
+          <i class="wbs-agent-dot" style="--c:${esc(node.agent_color)}"></i>
+          ${esc(node.agent_icon || "")} ${esc(node.agent_name)}
+        </span>
+        <span class="wbs-effort">${fmt(node.effort)} 人天</span>
+        <span class="wbs-deps">
+          <span class="wbs-field-label">前置</span>
+          ${
+            deps.length
+              ? deps
+                  .map(
+                    (id) =>
+                      `<button type="button" class="dep-chip wbs-dep" data-jump-node="${esc(
+                        id
+                      )}">${esc(id)}</button>`
+                  )
+                  .join("")
+              : '<span class="dep-empty">无</span>'
+          }
+        </span>
+      </div>
+    </article>`;
+  }
+
+  function switchView(view) {
+    if (view !== "decompose" && view !== "graph") return;
+    if (state.activeView === view) return;
+    state.activeView = view;
+
+    $("tab-decompose").classList.toggle("is-active", view === "decompose");
+    $("tab-graph").classList.toggle("is-active", view === "graph");
+    $("tab-decompose").setAttribute("aria-selected", String(view === "decompose"));
+    $("tab-graph").setAttribute("aria-selected", String(view === "graph"));
+    $("pane-decompose").hidden = view !== "decompose";
+    $("pane-graph").hidden = view !== "graph";
+
+    if (view === "graph" && state.network) {
+      // 容器从隐藏恢复后，vis-network 需要按容器尺寸重绘，并恢复原视角
+      const saved = {
+        position: state.network.getViewPosition(),
+        scale: state.network.getScale(),
+      };
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          state.network.redraw();
+          state.network.moveTo({
+            position: saved.position,
+            scale: saved.scale,
+            animation: false,
+          });
+        })
+      );
+    }
   }
 
   function renderInspector() {
@@ -1926,6 +2072,35 @@
       applyFilters();
     });
 
+    // 视图切换：任务分解 <-> 工作流程图
+    document.querySelectorAll(".view-tab").forEach((tab) => {
+      tab.addEventListener("click", () => switchView(tab.dataset.view));
+    });
+
+    // 任务分解视图：搜索
+    const decomposeSearch = $("decompose-search");
+    let decomposeTimer = null;
+    decomposeSearch.addEventListener("input", () => {
+      if (decomposeTimer) clearTimeout(decomposeTimer);
+      decomposeTimer = setTimeout(() => {
+        state.decomposeQuery = decomposeSearch.value;
+        renderDecompose();
+      }, 150);
+    });
+    $("btn-decompose-clear").addEventListener("click", () => {
+      decomposeSearch.value = "";
+      state.decomposeQuery = "";
+      renderDecompose();
+    });
+
+    // 任务分解视图：点前置依赖编号 → 跳到流程图并选中该任务
+    $("decompose-body").addEventListener("click", (event) => {
+      const chip = event.target.closest("[data-jump-node]");
+      if (!chip) return;
+      switchView("graph");
+      selectNode(chip.dataset.jumpNode);
+    });
+
     $("btn-save").addEventListener("click", savePlan);
     $("btn-export").addEventListener("click", downloadJson);
     $("btn-json").addEventListener("click", openJsonModal);
@@ -2038,6 +2213,7 @@
         addNode: addNodeAction,
         savePlan,
         showToast,
+        switchView,
       };
     } catch (error) {
       console.error(error);
